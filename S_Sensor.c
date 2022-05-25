@@ -3,7 +3,7 @@
 #use delay (clock=48M)
 
 #BYTE SSPBUF = 0xFC9
-
+//popo
 #define TRIGGER PIN_B3
 #define SETUP 1
 #define LOOP 2
