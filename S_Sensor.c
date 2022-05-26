@@ -1,7 +1,6 @@
 #include <18F4550.h>
 #fuses INTRC,NOPROTECT,NOWDT,CPUDIV1,NOMCLR
 #use delay (clock=8M)
-#use rs232(rcv=pin_c7, xmit=pin_c6, baud=9600, bits=8, parity=N)
 
 #BYTE SSPBUF = 0xFC9
 #BYTE T1CON=0xFCD
@@ -12,6 +11,7 @@
 int data=0;
 int16 cuenta;
 float tiempo,distancia=0;
+BYTE timer_alta=0, timer_baja=0,distancia_entera=0, distancia_decimal=0;
 
 #int_ssp
 void spi_rcv()
@@ -21,11 +21,15 @@ void spi_rcv()
    switch(data)
    {
       case 0:
-         SSPBUF = TMR1L;
+         SSPBUF = timer_alta;
       break;
       
       case 1:
-         SSPBUF = TMR1H;
+         SSPBUF = timer_baja;
+      break;
+      
+      case 3:
+         SSPBUF = distancia_entera;
       break;
  
    }  
@@ -48,28 +52,33 @@ void main()
    while(TRUE)
    {
       ultrasonico();
-      printf("DISTANCIA: %3.2f\n\r",distancia);
-      DELAY_MS(1000);
    } 
 }
 
 void ultrasonico(){
 
 
-output_high(pin_B0); 
+output_high(pin_D0); 
                delay_us(10); 
-          output_low(pin_B0);
-          while(!input(pin_B1)) 
+          output_low(pin_D0);
+          while(!input(pin_D1)) 
                {}
                TMR1L=0;
                TMR1H=0;
                TMR1L=0;
                TMR1H=0; 
-          while(input(pin_B1))
+          while(input(pin_D1))
                {}
-               cuenta=TMR1H<<8;
+timer_alta=TMR1H;
+timer_baja=TMR1L;
 
+cuenta=TMR1H<<8;
 cuenta+=TMR1L;
-tiempo=(cuenta*(8))/3; //tiempo(us)= (4/Fosc*prescaler)/(1x10-6)
+
+tiempo=(cuenta*4); //tiempo(us)= (4/Fosc*prescaler)/(1x10-6)
 distancia=(tiempo)/((58.30));
+distancia_entera=(int)(distancia);
+
+
+
 }
