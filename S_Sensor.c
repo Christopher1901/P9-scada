@@ -1,17 +1,47 @@
 #include <18F4550.h>
 #fuses INTRC,NOPROTECT,NOWDT,CPUDIV1,NOMCLR
 #use delay (clock=8M)
+#use rs232(baud=9600,xmit=PIN_D2,rcv=PIN_D3, parity=N, bits=8)
 
 #BYTE SSPBUF = 0xFC9
+#BYTE SSPSTAT=0xFC7
+#BYTE SSPCON1=0xFC6
+#bit BUFFER_FULL=0xFC7.0
+#bit OVERFLOW=0xFC6.6
+#bit COLLISION=0xFC6.7
+
 #BYTE T1CON=0xFCD
 #BYTE TMR1L=0xFCE
 #BYTE TMR1H=0xFCF
+#bit CREN=0xFAB.4
 
-
-int data=0;
+int data=0,distancia_entera=0;
 int16 cuenta;
 float tiempo,distancia=0;
-BYTE timer_alta=0, timer_baja=0,distancia_entera=0, distancia_decimal=0;
+int timer_alto=0, timer_bajo=0;
+
+void ultrasonico(){
+
+output_high(pin_D0);
+delay_us(10);
+output_low(pin_D0);
+while(!input(pin_D1)){}
+
+set_timer1(0);
+
+while(input(pin_D1)){}
+
+cuenta=get_timer1();
+timer_alto=TMR1H;
+timer_bajo=TMR1L;
+
+tiempo=cuenta*(4); //tiempo(us)= (4/Fosc*prescaler)/(1x10-6)
+
+distancia=(tiempo)/((58.30));
+distancia_entera=distancia;
+
+
+}
 
 #int_ssp
 void spi_rcv()
@@ -20,22 +50,28 @@ void spi_rcv()
    
    switch(data)
    {
-      case 0:
-         SSPBUF = timer_alta;
-      break;
-      
       case 1:
-         SSPBUF = timer_baja;
+         OVERFLOW=0;     
+         COLLISION=0;
+         ultrasonico();
+         SSPBUF = timer_bajo;
+         //printf("Parte baja: %x\n\r",TMR1L);
+         
       break;
       
-      case 3:
-         SSPBUF = distancia_entera;
+      case 2:
+         OVERFLOW=0;
+         COLLISION=0;
+         ultrasonico();
+         SSPBUF = timer_alto;
+         //printf("Parte alta: %x\n\r\n\r",TMR1H);
+         
       break;
- 
+
    }  
    
 }
-void ultrasonico();
+
 void main()
 {
    
@@ -43,7 +79,6 @@ void main()
    setup_spi(spi_slave | spi_L_to_H);
    enable_interrupts(INT_SSP);
    enable_interrupts(GLOBAL);
-   //VARIABLES PARA EL SENSOR ULTRASONICO
    
    
    T1CON=0b11110001;    // <7>16bits  <5-4>Prescaler 8 <3>TMR1 Osc disabled <2>Ignored <1>Internal clock source <0>Enable TMR1
@@ -51,34 +86,12 @@ void main()
    
    while(TRUE)
    {
-      ultrasonico();
+      //ultrasonico();
+      //printf("Distancia: %3.2f\r\n",distancia);
+      //printf("Parte alta: %x\r\n",TMR1H);
+      //printf("Parte baja: %x\r\n",TMR1L);
+      //delay_ms(1000);
    } 
 }
 
-void ultrasonico(){
 
-
-output_high(pin_D0); 
-               delay_us(10); 
-          output_low(pin_D0);
-          while(!input(pin_D1)) 
-               {}
-               TMR1L=0;
-               TMR1H=0;
-               TMR1L=0;
-               TMR1H=0; 
-          while(input(pin_D1))
-               {}
-timer_alta=TMR1H;
-timer_baja=TMR1L;
-
-cuenta=TMR1H<<8;
-cuenta+=TMR1L;
-
-tiempo=(cuenta*4); //tiempo(us)= (4/Fosc*prescaler)/(1x10-6)
-distancia=(tiempo)/((58.30));
-distancia_entera=(int)(distancia);
-
-
-
-}
